@@ -1,0 +1,4 @@
+logging:
+  level:
+    ru.halcyon.lingua: DEBUG
+    org.springframework.ai: DEBUG

@@ -1,0 +1,43 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: content-rag
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15432}/${DB_NAME:lingua}?currentSchema=content
+    username: ${DB_USER:lingua}
+    password: ${DB_PASSWORD:lingua}
+    hikari:
+      maximum-pool-size: 5
+
+  flyway:
+    schemas: content
+    default-schema: content
+    create-schemas: true
+
+  ai:
+    model:
+      chat: none   # этому сервису нужна только модель эмбеддингов
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never
+      embedding:
+        options:
+          model: ${OLLAMA_EMBEDDING_MODEL:bge-m3}
+    vectorstore:
+      pgvector:
+        schema-name: content
+        table-name: vector_store
+        initialize-schema: false   # таблицу создаёт миграция Flyway
+        dimensions: 1024           # размерность bge-m3
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

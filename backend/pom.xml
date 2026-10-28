@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.2</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>ru.halcyon.lingua</groupId>
+    <artifactId>lingua-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>lingua-backend</name>
+
+    <modules>
+        <module>contracts</module>
+        <module>learning-core</module>
+        <module>ai-orchestrator</module>
+        <module>content-rag</module>
+    </modules>
+
+    <properties>
+        <java.version>27</java.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
+        <jib.version>3.5.2</jib.version>
+
+        <!-- Переопределяются из Jenkins: -Dimage.registry=... -Dimage.tag=... -->
+        <image.registry>localhost:5000</image.registry>
+        <image.tag>latest</image.tag>
+        <image.base>eclipse-temurin:27-jre</image.base>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>ru.halcyon.lingua</groupId>
+                <artifactId>contracts</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!--
+                  Сборка образа без Docker daemon:
+                    ./mvnw -pl learning-core -am package jib:build
+                  main.class задаётся в каждом сервисе явно — так Jib не сканирует
+                  байткод и не зависит от поддержки новых версий class-файлов.
+                -->
+                <plugin>
+                    <groupId>com.google.cloud.tools</groupId>
+                    <artifactId>jib-maven-plugin</artifactId>
+                    <version>${jib.version}</version>
+                    <configuration>
+                        <from>
+                            <image>${image.base}</image>
+                        </from>
+                        <to>
+                            <image>${image.registry}/lingua/${project.artifactId}:${image.tag}</image>
+                        </to>
+                        <container>
+                            <mainClass>${main.class}</mainClass>
+                            <ports>
+                                <port>8080</port>
+                            </ports>
+                            <user>1000:1000</user>
+                        </container>
+                        <allowInsecureRegistries>true</allowInsecureRegistries>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

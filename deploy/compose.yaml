@@ -1,0 +1,145 @@
+name: lingua
+
+x-java: &java
+  restart: unless-stopped
+  networks: [lingua]
+  environment: &java-env
+    JAVA_TOOL_OPTIONS: "-Xmx320m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+    SERVER_PORT: 8080
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_NAME: ${POSTGRES_DB}
+    DB_USER: ${POSTGRES_USER}
+    DB_PASSWORD: ${POSTGRES_PASSWORD}
+    KAFKA_BOOTSTRAP: kafka:9092
+    REDIS_HOST: redis
+    OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+    OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL}
+    OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL}
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    kafka: { condition: service_healthy }
+  mem_limit: 512m
+  cpus: 1.0
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    networks: [lingua]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 20
+    mem_limit: 768m
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [lingua]
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    mem_limit: 192m
+
+  kafka:
+    image: apache/kafka:4.1.0
+    restart: unless-stopped
+    networks: [lingua]
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_HEAP_OPTS: "-Xms384m -Xmx384m"
+    volumes: [kafka:/var/lib/kafka/data]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/9092' || exit 1"]
+      interval: 10s
+      start_period: 30s
+      retries: 30
+    mem_limit: 768m
+    cpus: 1.0
+
+  learning-core:
+    <<: *java
+    image: ${REGISTRY}/lingua/learning-core:${TAG}
+    networks: [lingua, proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.lingua-core.rule=Host(`${DOMAIN}`) && PathPrefix(`/api/learning`)
+      - traefik.http.routers.lingua-core.entrypoints=${TRAEFIK_ENTRYPOINT}
+      - traefik.http.routers.lingua-core.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.lingua-core.loadbalancer.server.port=8080
+
+  ai-orchestrator:
+    <<: *java
+    image: ${REGISTRY}/lingua/ai-orchestrator:${TAG}
+    networks: [lingua, proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.lingua-ai.rule=Host(`${DOMAIN}`) && PathPrefix(`/api/ai`)
+      - traefik.http.routers.lingua-ai.entrypoints=${TRAEFIK_ENTRYPOINT}
+      - traefik.http.routers.lingua-ai.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.lingua-ai.loadbalancer.server.port=8080
+
+  content-rag:
+    <<: *java
+    image: ${REGISTRY}/lingua/content-rag:${TAG}
+
+  frontend:
+    image: ${REGISTRY}/lingua/frontend:${TAG}
+    restart: unless-stopped
+    networks: [proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK}
+      - traefik.http.routers.lingua-web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.lingua-web.entrypoints=${TRAEFIK_ENTRYPOINT}
+      - traefik.http.routers.lingua-web.tls.certresolver=${TRAEFIK_CERTRESOLVER}
+      - traefik.http.services.lingua-web.loadbalancer.server.port=80
+    mem_limit: 64m
+
+  # Включается флагом: ./deploy.sh up --with-grammar
+  languagetool:
+    image: erikvl87/languagetool:latest
+    profiles: [grammar]
+    restart: unless-stopped
+    networks: [lingua]
+    environment:
+      Java_Xmx: 768m
+    mem_limit: 1g
+
+networks:
+  lingua: {}
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK}
+
+volumes:
+  pgdata: {}
+  kafka: {}

@@ -1,0 +1,6 @@
+# Профиль для запуска из IDEA: подробные логи SQL и Kafka.
+logging:
+  level:
+    ru.halcyon.lingua: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    org.springframework.kafka: INFO

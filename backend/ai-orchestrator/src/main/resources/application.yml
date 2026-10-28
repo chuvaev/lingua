@@ -1,0 +1,24 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: ai-orchestrator
+  ai:
+    model:
+      embedding: none   # эмбеддинги считает content-rag
+    ollama:
+      # Ollama на игровом компе; адрес задаётся переменной окружения
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never   # модели качаем на том компе руками, а не из сервиса
+      chat:
+        options:
+          model: ${OLLAMA_CHAT_MODEL:qwen3:8b}
+          temperature: 0.4
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

@@ -1,0 +1,5 @@
+# Профиль для запуска из IDEA: видно запросы к модели и вызовы tools.
+logging:
+  level:
+    ru.halcyon.lingua: DEBUG
+    org.springframework.ai: DEBUG
