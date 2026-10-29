@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { addCard, listCards, streamChat, type WordCard } from './api'
+import { addCard, ApiError, listCards, streamChat, type WordCard } from './api'
 
 export default function App() {
   return (
@@ -17,50 +17,76 @@ export default function App() {
 }
 
 function Deck() {
-  const [cards, setCards] = useState<WordCard[]>([])
-  const [word, setWord] = useState('')
-  const [translation, setTranslation] = useState('')
-  const [error, setError] = useState<string | null>(null)
+    const [cards, setCards] = useState<WordCard[]>([])
+    const [word, setWord] = useState('')
+    const [translation, setTranslation] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const [suggestions, setSuggestions] = useState<string[]>([])
 
-  useEffect(() => {
-    listCards().then(setCards).catch((e: Error) => setError(e.message))
-  }, [])
+    useEffect(() => {
+        listCards().then(setCards).catch((e: Error) => setError(e.message))
+    }, [])
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!word.trim() || !translation.trim()) {
-      setError('Заполни слово и перевод')
-      return
+    async function save(force = false) {
+        if (!word.trim() || !translation.trim()) {
+            setError('Заполни слово и перевод')
+            return
+        }
+        try {
+            const card = await addCard(word.trim(), translation.trim(), 'en', force)
+            setCards((prev) => [card, ...prev])
+            setWord('')
+            setTranslation('')
+            setError(null)
+            setSuggestions([])
+        } catch (err) {
+            setError((err as Error).message)
+            setSuggestions(err instanceof ApiError && err.code === 'WORD_MISSPELLED' ? err.suggestions : [])
+        }
     }
-    try {
-      const card = await addCard(word.trim(), translation.trim())
-      setCards((prev) => [card, ...prev])
-      setWord('')
-      setTranslation('')
-      setError(null)
-    } catch (err) {
-      setError((err as Error).message)
-    }
-  }
 
-  return (
-    <section className="panel">
-      <h2>Мои слова</h2>
-      <form onSubmit={onSubmit} className="row">
-        <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="Слово" />
-        <input value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder="Перевод" />
-        <button type="submit">Добавить</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      <ul className="cards">
-        {cards.map((c) => (
-          <li key={c.id}>
-            <strong>{c.word}</strong> <span className="muted">— {c.translation}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
+    function onSubmit(e: FormEvent) {
+        e.preventDefault()
+        save()
+    }
+
+    function pick(s: string) {
+        setWord(s)
+        setSuggestions([])
+        setError(null)
+    }
+
+    return (
+        <section className="panel">
+            <h2>Мои слова</h2>
+            <form onSubmit={onSubmit} className="row">
+                <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="Слово" />
+                <input value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder="Перевод" />
+                <button type="submit">Добавить</button>
+            </form>
+            {error && <p className="error">{error}</p>}
+            {suggestions.length > 0 && (
+                <div className="suggestions">
+                    <span className="muted">Может, вы имели в виду:</span>
+                    {suggestions.map((s) => (
+                        <button key={s} type="button" className="ghost" onClick={() => pick(s)}>
+                            {s}
+                        </button>
+                    ))}
+                    <button type="button" className="ghost" onClick={() => save(true)}>
+                        Сохранить как есть
+                    </button>
+                </div>
+            )}
+            <ul className="cards">
+                {cards.map((c) => (
+                    <li key={c.id}>
+                        <strong>{c.word}</strong> <span className="muted">— {c.translation}</span>
+                    </li>
+                ))}
+            </ul>
+        </section>
+    )
 }
 
 interface Message {

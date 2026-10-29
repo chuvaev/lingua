@@ -54,3 +54,6 @@ button:disabled { opacity: 0.6; cursor: default; }
 .bubble { padding: 8px 12px; border-radius: 10px; white-space: pre-wrap; max-width: 85%; }
 .bubble.user { margin-left: auto; background: var(--accent); color: #fff; }
 .bubble.tutor { background: var(--bg); border: 1px solid var(--border); }
+.suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }

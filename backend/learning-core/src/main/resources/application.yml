@@ -29,6 +29,10 @@ spring:
       properties:
         enable.idempotence: true
 
+lingua:
+  languagetool:
+    url: ${LANGUAGETOOL_URL:http://localhost:18010}
+
 management:
   endpoints:
     web:

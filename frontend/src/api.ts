@@ -12,17 +12,45 @@ export interface WordCard {
 
 export async function listCards(): Promise<WordCard[]> {
   const res = await fetch('/api/learning/cards', { headers })
-  if (!res.ok) throw new Error(`Ошибка загрузки карточек: ${res.status}`)
+  if (!res.ok) throw await toError(res, 'Ошибка загрузки карточек')
   return res.json()
 }
 
-export async function addCard(word: string, translation: string, language = 'en'): Promise<WordCard> {
+export class ApiError extends Error {
+  constructor(message: string, readonly code?: string, readonly suggestions: string[] = []) {
+    super(message)
+  }
+}
+
+interface ApiProblem {
+  status: number
+  detail?: string
+  code?: string
+  suggestions?: string[]
+}
+
+const messages: Record<string, string> = {
+  WORD_ALREADY_EXISTS: 'Такое слово уже есть в словаре',
+  WORD_MISSPELLED: 'Возможно, в слове опечатка',
+}
+
+async function toError(res: Response, fallback: string): Promise<ApiError> {
+  try {
+    const problem: ApiProblem = await res.json()
+    const message = (problem.code && messages[problem.code]) || problem.detail || fallback
+    return new ApiError(message, problem.code, problem.suggestions ?? [])
+  } catch {
+    return new ApiError(`${fallback}: ${res.status}`)
+  }
+}
+
+export async function addCard(word: string, translation: string, language = 'en', force = false): Promise<WordCard> {
   const res = await fetch('/api/learning/cards', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ word, translation, language }),
+    body: JSON.stringify({ word, translation, language, force }),
   })
-  if (!res.ok) throw new Error(`Не удалось сохранить слово: ${res.status}`)
+  if (!res.ok) throw await toError(res, 'Не удалось сохранить слово')
   return res.json()
 }
 

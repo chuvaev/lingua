@@ -16,6 +16,7 @@ x-java: &java
     OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
     OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL}
     OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL}
+    LANGUAGETOOL_URL: http://languagetool:8010
   depends_on:
     postgres: { condition: service_healthy }
     redis: { condition: service_healthy }

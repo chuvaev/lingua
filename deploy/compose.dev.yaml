@@ -63,6 +63,13 @@ services:
       retries: 30
     mem_limit: 640m
 
+  languagetool:
+    image: erikvl87/languagetool:latest
+    environment:
+      Java_Xmx: 512m
+    ports: [ "127.0.0.1:18010:8010" ]
+    mem_limit: 768m
+
 volumes:
   pgdata: {}
   kafka: {}

@@ -22,12 +22,14 @@ class DeckControllerTest {
     private WordCardRepository cards;
     private WordEventsPublisher events;
     private WebTestClient client;
+    private SpellChecker spellChecker;
 
     @BeforeEach
     void setUp() {
         cards = mock(WordCardRepository.class);
         events = mock(WordEventsPublisher.class);
-        client = WebTestClient.bindToController(new DeckController(cards, events)).build();
+        spellChecker = mock(SpellChecker.class);
+        client = WebTestClient.bindToController(new DeckController(cards, events, spellChecker)).build();
     }
 
     @Test
@@ -38,7 +40,7 @@ class DeckControllerTest {
 
         client.post().uri("/api/learning/cards")
                 .header("X-User-Id", "ilya")
-                .bodyValue(new DeckController.AddCardRequest("apple", "яблоко", "en"))
+                .bodyValue(new DeckController.AddCardRequest("apple", "яблоко", "en", true))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody()
